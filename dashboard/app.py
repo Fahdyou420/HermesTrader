@@ -10,6 +10,7 @@ CORS(app)
 
 # In-memory queue holding trades that need to be read by the MT5 EA
 pending_mt5_signals = []
+auto_trading_enabled = False
 
 @app.route('/api/health')
 def health():
@@ -97,6 +98,24 @@ def get_equity():
         { "dt": '06-12', "balance": 105600, "dd": -0.2 },
     ])
 
+@app.route('/api/market')
+def get_market():
+    return jsonify([
+        {"symbol": "XAUUSD", "price": 2318.52, "change24h": 0.42, "spread": 0.8, "trend": "up"},
+        {"symbol": "EURUSD", "price": 1.0842, "change24h": -0.05, "spread": 0.2, "trend": "down"},
+        {"symbol": "BTCUSD", "price": 64210.00, "change24h": 1.20, "spread": 15.0, "trend": "up"},
+        {"symbol": "NQ100", "price": 18452.20, "change24h": 0.80, "spread": 1.2, "trend": "up"}
+    ])
+
+@app.route('/api/trading/config', methods=['GET', 'POST'])
+def trading_config():
+    global auto_trading_enabled
+    if request.method == 'POST':
+        data = request.json
+        auto_trading_enabled = data.get('auto_trade', False)
+        return jsonify({"status": "success", "auto_trade": auto_trading_enabled})
+    return jsonify({"auto_trade": auto_trading_enabled})
+
 @app.route('/api/chat', methods=['POST'])
 def chat():
     data = request.json
@@ -129,4 +148,4 @@ if __name__ == '__main__':
     print("Hermes Dashboard API Server Starting On Port 5000")
     print("Accepting connections for the React frontend...")
     print("--------------------------------------------------")
-    app.run(port=5000, debug=True)
+    app.run(host='0.0.0.0', port=5000, debug=True)

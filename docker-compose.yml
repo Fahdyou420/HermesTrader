@@ -1,0 +1,25 @@
+version: '3.8'
+
+services:
+  api:
+    build: 
+      context: .
+      dockerfile: Dockerfile.backend
+    container_name: hermes_trader_api
+    command: python dashboard/app.py
+    ports:
+      - "5000:5000"
+    volumes:
+      # Map your host computer's Hermes directory so the API can read state.db
+      - ~/.hermes:/root/.hermes
+    restart: unless-stopped
+
+  zmq_bridge:
+    build: 
+      context: .
+      dockerfile: Dockerfile.backend
+    container_name: hermes_trader_zmq
+    command: python bridge/zmq_bridge.py
+    ports:
+      - "5555:5555"
+    restart: unless-stopped

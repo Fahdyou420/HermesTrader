@@ -17,6 +17,14 @@ export interface Signal {
   outcome?: 'win' | 'loss' | 'pending';
 }
 
+export interface MarketAsset {
+  symbol: string;
+  price: number;
+  change24h: number;
+  spread: number;
+  trend: 'up' | 'down' | 'neutral';
+}
+
 export interface AgentState {
   id: string;
   name: string;

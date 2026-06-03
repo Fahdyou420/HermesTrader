@@ -1,0 +1,17 @@
+FROM python:3.11-slim
+
+WORKDIR /app
+
+# Install dependencies
+COPY requirements.txt .
+RUN pip install --no-cache-dir -r requirements.txt
+
+# Copy source code
+COPY dashboard/ ./dashboard/
+COPY bridge/ ./bridge/
+
+# Expose the API port and ZMQ port
+EXPOSE 5000 5555
+
+# Default command (can be overridden in docker-compose)
+CMD ["python", "dashboard/app.py"]

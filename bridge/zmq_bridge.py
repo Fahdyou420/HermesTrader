@@ -8,7 +8,7 @@ logging.basicConfig(level=logging.INFO, format='[%(levelname)s] %(message)s')
 def run_bridge():
     context = zmq.Context()
     socket = context.socket(zmq.REP)
-    socket.bind("tcp://127.0.0.1:5555")
+    socket.bind("tcp://*:5555")
     
     logging.info("ZeroMQ Bridge online. Listening on port 5555 for MT5 REQ connections...")
     

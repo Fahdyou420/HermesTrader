@@ -4,7 +4,7 @@ import { clsx, type ClassValue } from 'clsx';
 import { twMerge } from 'tailwind-merge';
 import { Area, AreaChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts';
 import { useState, useEffect, useRef } from 'react';
-import type { Signal, AgentState, VaultStats } from './types';
+import type { Signal, AgentState, VaultStats, MarketAsset } from './types';
 
 // Utility for merging tailwind classes nicely
 function cn(...inputs: ClassValue[]) {
@@ -66,6 +66,8 @@ export default function App() {
   const [agents, setAgents] = useState<AgentState[]>([]);
   const [vault, setVault] = useState<VaultStats | null>(null);
   const [equityData, setEquityData] = useState<any[]>([]);
+  const [market, setMarket] = useState<MarketAsset[]>([]);
+  const [autoTrade, setAutoTrade] = useState(false);
   
   // Connection state
   const [status, setStatus] = useState<'connecting' | 'connected' | 'error'>('connecting');
@@ -79,6 +81,21 @@ export default function App() {
     { role: 'hermes', content: 'Hermes Orchestrator online. How can I assist with your trading system today?', timestamp: new Date() }
   ]);
   const messagesEndRef = useRef<HTMLDivElement>(null);
+
+  const toggleAutoTrade = async () => {
+    const newState = !autoTrade;
+    setAutoTrade(newState); // Optimistic UI
+    try {
+      await fetch(`${backendUrl}/api/trading/config`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ auto_trade: newState })
+      });
+    } catch(err) {
+      console.error('Failed to toggle auto trade');
+      setAutoTrade(!newState); // Revert on failure
+    }
+  };
 
   useEffect(() => {
     if (isChatOpen) {
@@ -136,17 +153,24 @@ export default function App() {
         if (!healthRes.ok) throw new Error(`Backend returned status: ${healthRes.status}`);
         
         // If healthy, fetch the real data
-        const [signalsRes, agentsRes, vaultRes, equityRes] = await Promise.all([
+        const [signalsRes, agentsRes, vaultRes, equityRes, marketRes, configRes] = await Promise.all([
           fetch(`${backendUrl}/api/signals`),
           fetch(`${backendUrl}/api/agents`),
           fetch(`${backendUrl}/api/vault`),
-          fetch(`${backendUrl}/api/equity`)
+          fetch(`${backendUrl}/api/equity`),
+          fetch(`${backendUrl}/api/market`),
+          fetch(`${backendUrl}/api/trading/config`)
         ]);
 
         if (signalsRes.ok) setSignals(await signalsRes.json());
         if (agentsRes.ok) setAgents(await agentsRes.json());
         if (vaultRes.ok) setVault(await vaultRes.json());
         if (equityRes.ok) setEquityData(await equityRes.json());
+        if (marketRes.ok) setMarket(await marketRes.json());
+        if (configRes.ok) {
+           const conf = await configRes.json();
+           setAutoTrade(conf.auto_trade);
+        }
         
         setStatus('connected');
         setErrorMsg('');
@@ -287,7 +311,40 @@ export default function App() {
                 </div>
               )}
             </div>
-          </section>          <section className="flex flex-col gap-3">
+          </section>
+          
+          <section className="flex flex-col gap-3 min-h-0">
+            <div className="flex justify-between items-center mb-1">
+              <h2 className="text-[11px] font-bold text-[#64748b] uppercase flex items-center gap-2">
+                <span className="w-1 h-3 bg-[#eab308]"></span> Market Watch
+              </h2>
+            </div>
+            <div className="bg-[#0a0d14] border border-[#ffffff10] rounded-xl p-3 shadow-xl flex flex-col gap-2 min-h-[160px]">
+              {market.length > 0 ? (
+                market.map(m => (
+                  <div key={m.symbol} className="flex justify-between items-center p-2.5 bg-white/5 border border-white/5 rounded-lg hover:bg-white/10 transition-colors">
+                    <div>
+                      <p className="text-xs font-bold text-white mb-0.5">{m.symbol}</p>
+                      <p className="text-[9px] text-[#64748b] uppercase">Spread: {m.spread.toFixed(1)}</p>
+                    </div>
+                    <div className="text-right">
+                      <p className={cn("text-xs font-mono font-bold", m.trend === 'up' ? "text-[#00ff9d]" : "text-red-400")}>{m.price}</p>
+                      <p className={cn("text-[9px] font-mono", m.change24h > 0 ? "text-[#00ff9d]" : "text-red-400")}>
+                        {m.change24h > 0 ? '+' : ''}{m.change24h.toFixed(2)}%
+                      </p>
+                    </div>
+                  </div>
+                ))
+              ) : (
+                <div className="flex-1 flex flex-col items-center justify-center text-[#64748b] text-[10px] uppercase font-mono gap-2">
+                  <Activity size={24} className="opacity-20 animate-pulse" />
+                  Awaiting Price Feed...
+                </div>
+              )}
+            </div>
+          </section>
+
+          <section className="flex flex-col gap-3">
             <h2 className="text-[11px] font-bold text-[#64748b] uppercase mt-2 mb-1 flex items-center gap-2">
               <span className="w-1 h-3 bg-[#38bdf8]"></span> Hermes Three-Layer Memory
             </h2>
@@ -428,10 +485,27 @@ export default function App() {
         <div className="lg:col-span-3 flex flex-col gap-6">
           <section className="flex flex-col gap-3">
              <h2 className="text-[11px] font-bold text-[#64748b] uppercase mb-1 flex items-center gap-2">
-              <span className="w-1 h-3 bg-[#a855f7]"></span> Active Constraints
+              <span className="w-1 h-3 bg-[#a855f7]"></span> Auto Trader Protocol
             </h2>
             <div className="bg-[#0a0d14] border border-[#ffffff10] rounded-xl p-4 shadow-xl">
-              <h2 className="text-[11px] font-bold text-[#64748b] uppercase mb-4">FTMO Constraints</h2>
+              <div className="flex justify-between items-center mb-4 pb-4 border-b border-white/5">
+                <div>
+                  <h3 className="text-xs font-bold text-white">Autonomous Execution</h3>
+                  <p className="text-[10px] text-[#64748b]">Allow Hermes to execute signals automatically</p>
+                </div>
+                <button 
+                  onClick={toggleAutoTrade}
+                  disabled={status !== 'connected'}
+                  className={cn("relative inline-flex h-6 w-11 items-center rounded-full transition-colors disabled:opacity-50", 
+                    autoTrade ? "bg-[#00ff9d]" : "bg-[#64748b]"
+                  )}
+                >
+                  <span className={cn("inline-block h-4 w-4 transform rounded-full bg-white transition-transform",
+                    autoTrade ? "translate-x-6" : "translate-x-1"
+                  )} />
+                </button>
+              </div>
+
               <div className="space-y-4">
                 <div>
                   <div className="flex justify-between text-xs mb-2">
