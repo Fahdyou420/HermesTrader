@@ -1,9 +1,9 @@
 import { format } from 'date-fns';
-import { BrainCircuit, Database, Terminal, Cpu, AlertTriangle, Activity, ServerCrash, RefreshCw } from 'lucide-react';
+import { BrainCircuit, Database, Terminal, Cpu, AlertTriangle, Activity, ServerCrash, RefreshCw, MessageSquare, X, Send } from 'lucide-react';
 import { clsx, type ClassValue } from 'clsx';
 import { twMerge } from 'tailwind-merge';
 import { Area, AreaChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts';
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import type { Signal, AgentState, VaultStats } from './types';
 
 // Utility for merging tailwind classes nicely
@@ -71,6 +71,52 @@ export default function App() {
   const [status, setStatus] = useState<'connecting' | 'connected' | 'error'>('connecting');
   const [errorMsg, setErrorMsg] = useState('');
   const [backendUrl, setBackendUrl] = useState(import.meta.env.VITE_BACKEND_URL || 'http://127.0.0.1:5000');
+
+  // Chat state
+  const [isChatOpen, setIsChatOpen] = useState(false);
+  const [chatInput, setChatInput] = useState('');
+  const [messages, setMessages] = useState<{role: 'user' | 'hermes', content: string, timestamp: Date}[]>([
+    { role: 'hermes', content: 'Hermes Orchestrator online. How can I assist with your trading system today?', timestamp: new Date() }
+  ]);
+  const messagesEndRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (isChatOpen) {
+      messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+    }
+  }, [messages, isChatOpen]);
+
+  const handleSendMessage = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!chatInput.trim()) return;
+
+    const newMsg = { role: 'user' as const, content: chatInput, timestamp: new Date() };
+    setMessages(prev => [...prev, newMsg]);
+    setChatInput('');
+
+    if (status === 'connected') {
+      try {
+        const res = await fetch(`${backendUrl}/api/chat`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ message: newMsg.content })
+        });
+        const data = await res.json();
+        setMessages(prev => [...prev, { role: 'hermes', content: data.reply, timestamp: new Date() }]);
+      } catch (err) {
+        setMessages(prev => [...prev, { role: 'hermes', content: 'Error: Connection to Hermes backend failed.', timestamp: new Date() }]);
+      }
+    } else {
+      // Mock response for simulation mode
+      setTimeout(() => {
+        setMessages(prev => [...prev, { 
+          role: 'hermes', 
+          content: 'SYSTEM OFFLINE: I am running in simulation mode. Connect the Python Hermes backend to enable live natural language execution.', 
+          timestamp: new Date() 
+        }]);
+      }, 600);
+    }
+  };
 
   useEffect(() => {
     const timer = setInterval(() => setTime(new Date()), 1000);
@@ -476,6 +522,70 @@ export default function App() {
           {status === 'connected' ? <span className="text-[#00ff9d]">● SYSTEM LIVE</span> : <span className="text-red-500">● SYSTEM OFFLINE</span>}
         </div>
       </footer>
+
+      {/* Floating Chat Button */}
+      <div className="fixed bottom-12 right-6 z-50">
+        {isChatOpen && (
+          <div className="absolute bottom-16 right-0 w-[350px] sm:w-[400px] h-[500px] bg-[#0a0d14] border border-[#ffffff10] rounded-2xl shadow-2xl flex flex-col overflow-hidden animate-in fade-in slide-in-from-bottom-5">
+            <div className="p-4 border-b border-[#ffffff10] flex justify-between items-center bg-[#05070a]">
+              <div className="flex items-center gap-3">
+                <div className="w-8 h-8 bg-gradient-to-br from-[#f27d26] to-[#ff4e00] rounded-lg shadow-[0_0_10px_rgba(242,125,38,0.2)] flex items-center justify-center">
+                  <span className="text-black font-bold text-lg leading-none mt-0.5">H</span>
+                </div>
+                <div>
+                  <h3 className="font-bold text-white text-sm">Hermes Orchestrator</h3>
+                  <p className="text-[10px] text-[#00ff9d] font-mono flex items-center gap-1">
+                    <span className="w-1.5 h-1.5 rounded-full bg-[#00ff9d] animate-pulse"></span>
+                    ONLINE
+                  </p>
+                </div>
+              </div>
+              <button onClick={() => setIsChatOpen(false)} className="text-[#64748b] hover:text-white transition-colors">
+                <X size={18} />
+              </button>
+            </div>
+            
+            <div className="flex-1 overflow-y-auto p-4 flex flex-col gap-4">
+              {messages.map((m, i) => (
+                <div key={i} className={cn("flex flex-col max-w-[85%]", m.role === 'user' ? "self-end items-end" : "self-start items-start")}>
+                  <div className={cn("p-3 rounded-2xl text-sm whitespace-pre-wrap font-sans", 
+                    m.role === 'user' ? "bg-white/10 text-white rounded-br-sm" : "bg-[#f27d26]/10 border border-[#f27d26]/20 text-[#e0e6ed] rounded-bl-sm"
+                  )}>
+                    {m.content}
+                  </div>
+                  <span className="text-[9px] text-[#64748b] mt-1 font-mono">{format(m.timestamp, 'HH:mm')}</span>
+                </div>
+              ))}
+              <div ref={messagesEndRef} />
+            </div>
+
+            <form onSubmit={handleSendMessage} className="p-3 border-t border-[#ffffff10] bg-[#05070a]">
+              <div className="relative">
+                <input 
+                  type="text" 
+                  value={chatInput}
+                  onChange={e => setChatInput(e.target.value)}
+                  placeholder="Tell Hermes what to execute..." 
+                  className="w-full bg-black/50 border border-white/10 rounded-xl pl-4 pr-10 py-3 text-sm text-white focus:outline-none focus:border-[#f27d26]/50 transition-colors"
+                />
+                <button type="submit" disabled={!chatInput.trim()} className="absolute right-2 top-1/2 -translate-y-1/2 p-1.5 text-[#64748b] hover:text-[#f27d26] disabled:opacity-50 transition-colors">
+                  <Send size={16} />
+                </button>
+              </div>
+            </form>
+          </div>
+        )}
+        
+        <button 
+          onClick={() => setIsChatOpen(!isChatOpen)}
+          className={cn(
+            "w-14 h-14 rounded-full flex items-center justify-center text-black shadow-[0_4px_20px_rgba(242,125,38,0.4)] transition-all hover:scale-105",
+            isChatOpen ? "bg-[#e0e6ed] shadow-none" : "bg-gradient-to-br from-[#f27d26] to-[#ff4e00]"
+          )}
+        >
+          {isChatOpen ? <X size={24} /> : <MessageSquare size={24} />}
+        </button>
+      </div>
     </div>
   );
 }
