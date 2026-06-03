@@ -187,6 +187,9 @@ export default function App() {
                   Required Local Setup to Provide Live Data
                 </h3>
                 <p className="text-[#94a3b8] mb-3">This dashboard acts as a frontend for your local Hermes Agent node. You must run the data-providing backend:</p>
+                <div className="bg-emerald-500/10 border border-emerald-500/20 rounded-lg p-3 mb-3 text-emerald-400 text-sm">
+                  <strong>💡 MT5 Expert Advisors Generated!</strong> Check the <code className="text-white bg-black/30 px-1 py-0.5 rounded">/mt5_ea/</code> directory we just created in your project! We generated both the <code className="text-white">ZeroMQ</code> and <code className="text-white">Native HTTP</code> EAs to attach to your MetaTrader 5 charts.
+                </div>
                 <ol className="list-decimal list-inside space-y-3 text-[#94a3b8] font-mono text-xs">
                   <li>
                     <strong className="text-white">API Server with CORS:</strong>
