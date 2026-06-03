@@ -1,0 +1,6 @@
+{
+  "name": "Hermes Command Center",
+  "description": "Dashboard for autonomous AI trading system using Hermes and Qwen, featuring signal streaming, agent monitoring, and Obsidian vault insights.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
